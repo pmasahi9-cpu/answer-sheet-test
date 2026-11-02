@@ -2,7 +2,7 @@
 // white-space: normal)으로 시험용 글을 그려, 줄마다 들어간 글자를 잰다. 브라우저(크롬·엣지) × 화면 배율(1, 1.25, 1.5).
 import { chromium } from "playwright";
 import fs from "node:fs";
-const texts = ["answer8.txt", "stress.txt", "sample.txt"];
+const texts = ["answer8.txt", "stress.txt", "sample.txt", "holdout.txt"]; // holdout: 계산 규칙을 맞출 때 안 본 새 글(영문·한자·원문자·기호 섞음)
 const esc = (s) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;");
 // contenteditable처럼 연속 공백은 공백+nbsp로(사라지지 않게)
 const line = (l) => (l ? esc(l).replace(/ {2,}/g, (m) => " " + "\u00a0".repeat(m.length - 1)).replace(/^ /, "\u00a0") : "<br>");
