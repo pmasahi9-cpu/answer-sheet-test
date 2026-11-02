@@ -35,20 +35,20 @@ for (const channel of ["chrome", "msedge", null]) {
 fs.writeFileSync("results/windows.json", JSON.stringify(out));
 for (const r of out.runs) console.log(r.channel, r.dsf, r.text, r.error || `줄 ${r.lines.length} 맑은고딕 ${r.malgunInstalled}`);
 
-// 윈도 맑은 고딕 글자 폭 표(맥 Word에 딸린 맑은 고딕과 숫자·띄어쓰기·영문 폭이 달라 — 측정 #3, 로베이스 줄 계산에 쓴다).
+// 윈도 맑은 고딕 글자 폭 표 — 캔버스 값은 영문·숫자가 화면 글꼴과 달라서(측정 #4: 한 줄 실제 폭 < 글자 합) 화면 글자(DOM)로 잰다.
+// 같은 글자 20개 폭/20, 그리고 실제 답안 줄마다 DOM 폭과 표 합을 비교해 커닝 여부를 본다.
 {
   const b = await chromium.launch({ channel: "chrome" }); const p = await b.newPage();
-  await p.setContent('<meta charset="utf-8"><div id="ed" style="font-family:\'Malgun Gothic\';font-size:16px">가</div>'); await p.evaluate(() => document.fonts.ready);
-  const R = [[0x20, 0x7e], [0xa0, 0x24f], [0x2000, 0x2bff], [0x3000, 0x33ff], [0x3130, 0x318f], [0xac00, 0xd7a3], [0x4e00, 0x9fff], [0xf900, 0xfaff], [0xff00, 0xffef]];
+  await p.setContent('<meta charset="utf-8"><span id="s" style="font:16px/24px \'Malgun Gothic\';white-space:pre"></span>'); await p.evaluate(() => document.fonts.ready);
+  const R = [[0x20, 0x7e], [0xa0, 0x24f], [0x2000, 0x2bff], [0x3000, 0x33ff], [0xac00, 0xd7a3], [0x4e00, 0x9fff], [0xf900, 0xfaff], [0xff00, 0xffef]];
   const tab = await p.evaluate((R) => {
-    const c = document.createElement("canvas").getContext("2d"); c.font = '16px "Malgun Gothic"'; const out = [];
-    for (const [a, z] of R) { let st = a, w0 = null; for (let u = a; u <= z + 1; u++) { const w = u <= z ? c.measureText(String.fromCharCode(u)).width : NaN; if (w !== w0) { if (w0 !== null) out.push([st, u - 1, w0]); st = u; w0 = w; } } }
+    const s = document.getElementById("s"), out = [];
+    const w1 = (ch) => { s.textContent = ch.repeat(20); return Math.round(s.getBoundingClientRect().width / 20 * 4096) / 4096; };
+    for (const [a, z] of R) { let st = a, w0 = null; for (let u = a; u <= z + 1; u++) { const w = u <= z ? w1(String.fromCharCode(u)) : NaN; if (w !== w0) { if (w0 !== null) out.push([st, u - 1, w0]); st = u; w0 = w; } } }
     return out;
   }, R);
-  // 한 줄 전체 폭이 글자 폭 합과 같은지(커닝·합자 여부) — 실제 DOM 폭으로 비교
-  const texts2 = fs.readFileSync("answer8.txt", "utf8").split("\n").slice(0, 40);
-  const kern = await p.evaluate((T) => { const c = document.createElement("canvas").getContext("2d"); c.font = '16px "Malgun Gothic"'; const s = document.createElement("span"); s.style.cssText = "font:16px 'Malgun Gothic';white-space:pre"; document.body.append(s);
-    return T.filter(Boolean).map((t) => { s.textContent = t; let sum = 0; for (const ch of t) sum += c.measureText(ch).width; return [t.length, s.getBoundingClientRect().width, sum]; }); }, texts2);
+  const lines = out.runs.find((r) => r.text === "answer8.txt" && r.lines).lines.slice(0, 80);
+  const kern = await p.evaluate((T) => { const s = document.getElementById("s"); return T.map((t) => { t = t.replace(/\n/g, ""); s.textContent = t; const W = s.getBoundingClientRect().width; let sum = 0; for (const ch of t) { s.textContent = ch.repeat(20); sum += s.getBoundingClientRect().width / 20; } return [t, W, sum]; }); }, lines);
   fs.writeFileSync("results/widths.json", JSON.stringify({ ranges: tab, kern }));
   console.log("폭 표 구간", tab.length); await b.close();
 }
