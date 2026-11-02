@@ -43,13 +43,19 @@ for (const r of out.runs) console.log(r.channel, r.dsf, r.text, r.error || `줄 
   const R = [[0x20, 0x7e], [0xa0, 0x24f], [0x2000, 0x2bff], [0x3000, 0x33ff], [0xac00, 0xd7a3], [0x4e00, 0x9fff], [0xf900, 0xfaff], [0xff00, 0xffef]];
   const tab = await p.evaluate((R) => {
     const s = document.getElementById("s"), out = [];
-    const w1 = (ch) => { s.textContent = ch.repeat(20); return Math.round(s.getBoundingClientRect().width / 20 * 4096) / 4096; };
+    // 같은 글자를 이어 붙이면 크롬이 괄호·따옴표 사이를 좁힐 수 있어(측정 #5 stress 어긋남) 한글 사이에 하나씩 끼워 잰다.
+    s.textContent = "가가"; const base = s.getBoundingClientRect().width;
+    const w1 = (ch) => { s.textContent = "가" + ch + "가"; return Math.round((s.getBoundingClientRect().width - base) * 4096) / 4096; };
     for (const [a, z] of R) { let st = a, w0 = null; for (let u = a; u <= z + 1; u++) { const w = u <= z ? w1(String.fromCharCode(u)) : NaN; if (w !== w0) { if (w0 !== null) out.push([st, u - 1, w0]); st = u; w0 = w; } } }
     return out;
   }, R);
   const lines = out.runs.find((r) => r.text === "answer8.txt" && r.lines).lines.slice(0, 80);
   const kern = await p.evaluate((T) => { const s = document.getElementById("s"); return T.map((t) => { t = t.replace(/\n/g, ""); s.textContent = t; const W = s.getBoundingClientRect().width; let sum = 0; for (const ch of t) { s.textContent = ch.repeat(20); sum += s.getBoundingClientRect().width / 20; } return [t, W, sum]; }); }, lines);
-  fs.writeFileSync("results/widths.json", JSON.stringify({ ranges: tab, kern }));
+  // 기호끼리 붙었을 때 폭(한글 사이에 둘을 끼워 잼) — 홀로 잰 폭 합과 다르면 기록
+  const P = [...`.,)]}!?:;'"\`’”」』〉》】、。%）］｝，．：；！？([{‘“「『〈《【（［｛·…→※~-/@#&*+=<>^_|\\`];
+  const pairs = await p.evaluate((P) => { const s = document.getElementById("s"); s.textContent = "가가"; const base = s.getBoundingClientRect().width; const one = {}; for (const c of P) { s.textContent = "가" + c + "가"; one[c] = s.getBoundingClientRect().width - base; }
+    const out = []; for (const a of P) for (const b of P) { s.textContent = "가" + a + b + "가"; const w = s.getBoundingClientRect().width - base; if (Math.abs(w - one[a] - one[b]) > 0.01) out.push([a + b, w - one[a] - one[b]]); } return out; }, P);
+  fs.writeFileSync("results/widths.json", JSON.stringify({ ranges: tab, kern, pairs }));
   console.log("폭 표 구간", tab.length); await b.close();
 }
 // 작업 흐름의 '결과 커밋' 단계가 바뀐 파일이 있는 채로 pull --rebase를 하다 멈춰서(측정 #2), 여기서 먼저 커밋해 둔다.
