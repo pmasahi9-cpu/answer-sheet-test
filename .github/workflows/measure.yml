@@ -16,15 +16,19 @@ jobs:
         with: { node-version: "20" }
       - run: npm install
       - run: npx playwright install chromium
-      - name: 맑은 고딕 확인
+      # 윈도 서버에는 한국어 글꼴이 없다 — 마이크로소프트의 한국어 보조 글꼴 묶음(맑은 고딕 포함)을 설치한다
+      - name: 한국어 글꼴(맑은 고딕) 설치
         shell: pwsh
-        run: Get-ChildItem C:\Windows\Fonts | Where-Object Name -like "malgun*" | Select-Object Name
+        run: |
+          Add-WindowsCapability -Online -Name "Language.Fonts.Kore~~~und-KORE~0.0.1.0"
+          Get-ChildItem C:\Windows\Fonts | Where-Object Name -like "malgun*" | Select-Object Name
       - run: node measure.mjs
       - name: 결과 커밋
         shell: bash
         run: |
           git config user.name "measure-bot"
           git config user.email "measure-bot@users.noreply.github.com"
+          git pull --rebase
           git add results
           git commit -m "Windows 측정 결과" || echo "바뀐 것 없음"
           git push
