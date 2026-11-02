@@ -34,3 +34,10 @@ for (const channel of ["chrome", "msedge", null]) {
 }
 fs.writeFileSync("results/windows.json", JSON.stringify(out));
 for (const r of out.runs) console.log(r.channel, r.dsf, r.text, r.error || `줄 ${r.lines.length} 맑은고딕 ${r.malgunInstalled}`);
+// 작업 흐름의 '결과 커밋' 단계가 바뀐 파일이 있는 채로 pull --rebase를 하다 멈춰서(측정 #2), 여기서 먼저 커밋해 둔다.
+if (process.env.GITHUB_ACTIONS) {
+  const { execSync } = await import("node:child_process");
+  const sh = (c) => execSync(c, { stdio: "inherit" });
+  sh('git config user.name "measure-bot"'); sh('git config user.email "measure-bot@users.noreply.github.com"');
+  sh("git add results"); try { sh('git commit -m "Windows 측정 결과"'); } catch { console.log("바뀐 것 없음"); }
+}
