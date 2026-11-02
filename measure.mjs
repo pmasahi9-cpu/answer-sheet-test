@@ -52,7 +52,8 @@ for (const r of out.runs) console.log(r.channel, r.dsf, r.text, r.error || `줄 
   const lines = out.runs.find((r) => r.text === "answer8.txt" && r.lines).lines.slice(0, 80);
   const kern = await p.evaluate((T) => { const s = document.getElementById("s"); return T.map((t) => { t = t.replace(/\n/g, ""); s.textContent = t; const W = s.getBoundingClientRect().width; let sum = 0; for (const ch of t) { s.textContent = ch.repeat(20); sum += s.getBoundingClientRect().width / 20; } return [t, W, sum]; }); }, lines);
   // 기호끼리 붙었을 때 폭(한글 사이에 둘을 끼워 잼) — 홀로 잰 폭 합과 다르면 기록
-  const P = [...`.,)]}!?:;'"\`’”」』〉》】、。%）］｝，．：；！？([{‘“「『〈《【（［｛·…→※~-/@#&*+=<>^_|\\`];
+  // 영문·숫자·문장부호 전부 + 자주 쓰는 기호(측정 #8: 영문 쌍 커닝으로 holdout 3줄 어긋남)
+  const P = [...Array.from({ length: 95 }, (_, k) => String.fromCharCode(32 + k)).filter((c) => c !== " "), ..."’”」』〉》】、。%）］｝，．：；！？‘“「『〈《【（［｛·…→※ㆍ①②°△○□"];
   const pairs = await p.evaluate((P) => { const s = document.getElementById("s"); s.textContent = "가가"; const base = s.getBoundingClientRect().width; const one = {}; for (const c of P) { s.textContent = "가" + c + "가"; one[c] = s.getBoundingClientRect().width - base; }
     const out = []; for (const a of P) for (const b of P) { s.textContent = "가" + a + b + "가"; const w = s.getBoundingClientRect().width - base; if (Math.abs(w - one[a] - one[b]) > 0.01) out.push([a + b, w - one[a] - one[b]]); } return out; }, P);
   // stress 글의 글자마다 실제 x 위치(측정 #6에서 계산과 6줄 어긋나 어느 글자 폭이 다른지 찾으려고)
