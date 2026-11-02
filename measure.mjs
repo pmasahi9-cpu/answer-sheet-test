@@ -55,7 +55,11 @@ for (const r of out.runs) console.log(r.channel, r.dsf, r.text, r.error || `줄 
   const P = [...`.,)]}!?:;'"\`’”」』〉》】、。%）］｝，．：；！？([{‘“「『〈《【（［｛·…→※~-/@#&*+=<>^_|\\`];
   const pairs = await p.evaluate((P) => { const s = document.getElementById("s"); s.textContent = "가가"; const base = s.getBoundingClientRect().width; const one = {}; for (const c of P) { s.textContent = "가" + c + "가"; one[c] = s.getBoundingClientRect().width - base; }
     const out = []; for (const a of P) for (const b of P) { s.textContent = "가" + a + b + "가"; const w = s.getBoundingClientRect().width - base; if (Math.abs(w - one[a] - one[b]) > 0.01) out.push([a + b, w - one[a] - one[b]]); } return out; }, P);
-  fs.writeFileSync("results/widths.json", JSON.stringify({ ranges: tab, kern, pairs }));
+  // stress 글의 글자마다 실제 x 위치(측정 #6에서 계산과 6줄 어긋나 어느 글자 폭이 다른지 찾으려고)
+  await p.setContent(html(fs.readFileSync("stress.txt", "utf8"))); await p.evaluate(() => document.fonts.ready);
+  const pos = await p.evaluate(() => { const ed = document.getElementById("ed"), w = document.createTreeWalker(ed, NodeFilter.SHOW_TEXT); let n; const o = [];
+    while ((n = w.nextNode())) for (let i = 0; i < n.data.length; i++) { const rg = document.createRange(); rg.setStart(n, i); rg.setEnd(n, i + 1); const bx = rg.getClientRects()[0]; if (bx) o.push([n.data[i], bx.left, bx.width, bx.top]); } return o; });
+  fs.writeFileSync("results/widths.json", JSON.stringify({ ranges: tab, kern, pairs, pos }));
   console.log("폭 표 구간", tab.length); await b.close();
 }
 // 작업 흐름의 '결과 커밋' 단계가 바뀐 파일이 있는 채로 pull --rebase를 하다 멈춰서(측정 #2), 여기서 먼저 커밋해 둔다.
