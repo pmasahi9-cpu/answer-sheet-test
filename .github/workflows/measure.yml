@@ -1,0 +1,30 @@
+# Windows 가상 머신에서 답안지 줄 바꿈을 재고, 결과를 results/에 커밋한다.
+name: measure
+on:
+  push:
+    branches: [main]
+    paths-ignore: ["results/**"]
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: "20" }
+      - run: npm install
+      - run: npx playwright install chromium
+      - name: 맑은 고딕 확인
+        shell: pwsh
+        run: Get-ChildItem C:\Windows\Fonts | Where-Object Name -like "malgun*" | Select-Object Name
+      - run: node measure.mjs
+      - name: 결과 커밋
+        shell: bash
+        run: |
+          git config user.name "measure-bot"
+          git config user.email "measure-bot@users.noreply.github.com"
+          git add results
+          git commit -m "Windows 측정 결과" || echo "바뀐 것 없음"
+          git push
