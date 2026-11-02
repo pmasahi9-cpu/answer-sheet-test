@@ -1,0 +1,36 @@
+// Windows에서 변호사시험 CBT 답안지 조건(맑은 고딕 16px, 줄 높이 24px, 너비 784px, word-break: break-all,
+// white-space: normal)으로 시험용 글을 그려, 줄마다 들어간 글자를 잰다. 브라우저(크롬·엣지) × 화면 배율(1, 1.25, 1.5).
+import { chromium } from "playwright";
+import fs from "node:fs";
+const texts = ["answer8.txt", "stress.txt", "sample.txt"];
+const esc = (s) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;");
+// contenteditable처럼 연속 공백은 공백+nbsp로(사라지지 않게)
+const line = (l) => (l ? esc(l).replace(/ {2,}/g, (m) => " " + "\u00a0".repeat(m.length - 1)).replace(/^ /, "\u00a0") : "<br>");
+const html = (T) => `<!doctype html><meta charset="utf-8"><style>body{margin:0}
+#ed{font-family:"Malgun Gothic";font-size:16px;line-height:24px;width:784px;word-break:break-all;white-space:normal;overflow-wrap:break-word}</style>
+<div id="ed">${T.split("\n").map((l) => "<div>" + line(l) + "</div>").join("")}</div>`;
+const out = { os: process.platform, when: new Date().toISOString(), runs: [] };
+for (const channel of ["chrome", "msedge", null]) {
+  let b;
+  try { b = await chromium.launch(channel ? { channel } : {}); } catch (e) { out.runs.push({ channel, error: String(e).slice(0, 200) }); continue; }
+  for (const dsf of [1, 1.25, 1.5]) {
+    const ctx = await b.newContext({ viewport: { width: 1000, height: 800 }, deviceScaleFactor: dsf }); const p = await ctx.newPage();
+    for (const f of texts) {
+      await p.setContent(html(fs.readFileSync(f, "utf8"))); await p.evaluate(() => document.fonts.ready); await p.waitForTimeout(300);
+      const r = await p.evaluate(() => {
+        const ed = document.getElementById("ed"), w = document.createTreeWalker(ed, NodeFilter.SHOW_TEXT); let n, L = {};
+        while ((n = w.nextNode())) for (let i = 0; i < n.data.length; i++) { const rg = document.createRange(); rg.setStart(n, i); rg.setEnd(n, i + 1); const bx = rg.getClientRects()[0]; if (!bx) continue; const k = Math.round(bx.top * 4) / 4; (L[k] = L[k] || []).push(n.data[i]); }
+        const tops = Object.keys(L).map(Number).sort((a, b) => a - b);
+        const c = document.createElement("canvas").getContext("2d"); c.font = '16px "Malgun Gothic"'; const mg = c.measureText("가나다라마바사").width; c.font = '16px "NoSuchFontX"'; const fb = c.measureText("가나다라마바사").width;
+        const wid = {}; c.font = '16px "Malgun Gothic"'; for (const ch of ["가", "A", "a", "1", " ", ".", "(", ")", "甲"]) wid[ch] = c.measureText(ch).width;
+        return { height: ed.getBoundingClientRect().height, lines: tops.map((k) => L[k].join("")), malgunInstalled: Math.abs(mg - fb) > 0.01, widths: wid, ua: navigator.userAgent };
+      });
+      out.runs.push({ channel: channel || "playwright-chromium", dsf, text: f, ...r });
+      if (f === "sample.txt") await p.screenshot({ path: `results/sample_${channel || "pw"}_${dsf}.png` });
+    }
+    await ctx.close();
+  }
+  await b.close();
+}
+fs.writeFileSync("results/windows.json", JSON.stringify(out));
+for (const r of out.runs) console.log(r.channel, r.dsf, r.text, r.error || `줄 ${r.lines.length} 맑은고딕 ${r.malgunInstalled}`);
